@@ -1,0 +1,148 @@
+#packages from numpy, scipy, mpmath, matplotlib, math, warnings, and sympy
+import math
+import numpy as np
+import scipy
+import mpmath as mp
+import matplotlib.pyplot as plt
+import warnings
+from sympy import *
+warnings.filterwarnings("ignore")
+
+def BCcalc():
+    global theta
+    global C
+    global B
+    global LAB
+    global LBC
+    theta=[]
+    for i in range(361):
+        theta.append(i*((np.pi)/180))     #pi from numpy
+    C=[]
+    for i in range(len(theta)):
+        C.append(np.arcsin((LAB*(np.sin(theta[i])))/LBC))     #trigonometric functions from numpy
+    C=np.array(C)     #array from numpy
+    B=[]
+    for i in range(len(theta)):
+        B.append((np.pi)-theta[i]-C[i])     #pi from numpy
+    B=np.array(B)     #array from numpy
+
+#calculates the displacement of the piston
+def Dcalc():
+    global D
+    D=[]
+    for i in range(len(theta)):
+        try:
+            result = -1*((LBC*np.sin(np.pi-theta[i]-(np.arcsin((LAB*np.sin(theta[i]))/LBC))))/(np.sin(theta[i])))+(LAB+LBC)     #trigonometric functions from numpy
+        except ZeroDivisionError:
+            D = 0
+        D.append(result)    
+    D[0]=0
+    D[180]=float(Stroke)
+    D[360]=0
+    D=np.array(D)     #array from numpy
+#calculates the velocity of the piston via derivative of displacement
+def Vcalc():
+    global apm
+    global V
+    global primeeq
+    global x
+    apm=rpm*(2*np.pi)     #pi from numpy
+    x= symbols('x')     #sympy
+    init_printing(use_unicode=True)
+    f=(-1*((LBC*sin(np.pi-x-(asin((LAB*sin(x))/LBC))))/(sin(x)))+(LAB+LBC))     #trigonometric functions from sympy
+    primeeq=diff(f, x)     #sympy
+    fprime = lambdify(x, primeeq)     #sympy
+    V=[]
+    for i in theta:
+        try:
+            result = fprime(i)
+        except ZeroDivisionError:
+            result = 0
+        V.append((apm)*fprime(i))
+    V[0]=0
+    V[180]=0
+    V[360]=0 
+    V=np.array(V)     #array from numpy
+
+#calculates acceleration of piston via derivative of velocity
+def Acalc():
+    global A
+    dpeq=diff(primeeq, x)     #sympy
+    fdpeq = lambdify(x, dpeq)     #sympy
+    A=[]
+    for i in theta:
+        try:
+            result = fdpeq(i)
+        except ZeroDivisionError:
+            result = 0
+        A.append((apm)*fdpeq(i))
+    A[0]=apm*fdpeq(0.001)
+    A[180]=apm*fdpeq(3.142)
+    A[360]=A[0]
+    A=list(A)
+
+
+
+#calculates horsepower and torque using physics equations
+def HPTcalc():
+    global Torque
+    global Horsepower
+    Fp=[]
+    for i in range(len(theta)):
+        Fp.append(A[i]*(1.051)*numcyl)
+    Fc=[]
+    for i in range(len(theta)):
+        Fc.append((Fp[i])/sin(C[i]))     #trigonometric function from sympy
+    Fc[0]=Fc[1]
+    Fc[360]=Fc[1]
+    Fc[180]=0
+    totFc=0
+    for ele in Fc:
+        totFc=totFc+ele
+    avgFc=totFc/360
+    Torque=avgFc*LAB
+    Horsepower=(Torque*rpm)/5252    
+
+#makes a menu to run code
+def menu(): 
+    global rpm
+    global numcyl
+    global Stroke
+    global LAB 
+    global LBC
+    global apm
+    global Torque
+    global Horsepower
+    while(True):
+        print('  Engine Horsepower and Torque Calculator')
+        print('-- Enter the number to set custom values (input in order) --')
+        print()
+        print('1. Engine Stroke (meters)')
+        print('2. Number of Cylinders')
+        print('3. Connecting Rod Ratio (Length of Connecting Rod over Radius of Crankshaft)')
+        print('4. RPM (to view HP and Torque at specific RPM)')
+        print()
+  
+        menuSelection = input()
+        if(menuSelection=='1'):
+            Stroke=input('Input Stroke: ')
+            LAB=((float(Stroke))/2) #meters
+        elif(menuSelection=='2'):
+            numcyl=float(input("Input number of cylinders: "))
+        elif(menuSelection=='3'):
+            ConRod_Ratio = input('Input ConRod Ratio: ')
+            LBC=2*LAB*(float(ConRod_Ratio))
+        elif(menuSelection=='4'):
+            rpm = float(input('Input RPM: '))
+            BCcalc()
+            Dcalc()
+            Vcalc()
+            Acalc()
+            HPTcalc()
+            Torque=round(Torque, 1)
+            Horsepower=round(Horsepower, 1)
+            print("At", rpm, "RPM, your engine torque is", Torque, "Nm, and your power is", Horsepower, "hp.")
+            break
+        else:
+            print("Error: Input valid choice.")
+menu()
